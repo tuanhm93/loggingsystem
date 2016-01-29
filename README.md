@@ -60,13 +60,16 @@
 * Từ kết quả  thực nghiệm trên, cũng như tham khảo thêm một vài thử nghiệm tương tự của cộng đồng mạng thì có thể thấy rằng giải pháp sử dụng nén của mongodb đi kèm khá tốt, có một vài storage engine bên ngoài cho kết quả tốt hơn như tokumx, tokumxse, rocksdb nhưng thường phiên bản mongodb kèm theo thường là bản cũ cụ thể tokumx chỉ hỗ trợ mongodb v2.4 là cao nhất hiện nay, và cũng khó đảm bảo tính ổn định của nó trong thực tế, thứ hai là các tính năng, hiệu năng cải thiện ở phiên bản mới cũng không được áp dụng
 * Mặc dù nén dữ liệu như trên tuy nhiên hiệu năng đọc ghi của nó vẫn rất tốt, dưới đây là hình ảnh về kết quả thử nghiệm về khả năng ghi dữ liệu của wiredtiger so với mmapv1 và một storage engine Tokumxse tham khảo trên cộng đồng mạng
 ![Thử nghiệm với dữ liệu chuyến bay](http://1.bp.blogspot.com/-37s7efPfxVs/VNn_WRixrxI/AAAAAAAAB8s/lYij_8g_gLs/s1600/se-shootout-02-adamc-compression-speed.png)
- ## Hiệu năng hệ thống
+## Hiệu năng hệ thống
 * Do số lượng log được gửi lên server là khá cáo do đó hệ thống phải đảm bảo phản hồi xác nhận kịp thời về cho phía client, tiếp theo đó là do theo thời gian lượng client sử dụng hệ thống càng tăng dẫn đến hệ thống phải đảm bảo trong tương lai có thể phục vụ được một số lượng client đủ lớn
 * Hệ thống được xây dựng trên nền tảng Node.js, lưu trữ dữ liệu trong cơ sở dữ liệu mongodb, và một woker chịu trách nhiệm ghi log vào cơ sở dữ liệu sử dụgn redis database để lưu dữ liệu tạm thời
 * Luồng làm việc thì khi làm việc với hệ thống, client sẽ phải đăng ký một app với hệ thống, khi đó hệ thống sẽ gửi về một _token được sử dụng để phân biệt các app, mỗi lần muốn lưu log vào hệ thống, client sẽ phải gửi kèm theo _token nếu _token không hợp lệ thì sẽ báo lỗi
+![Thử nghiệm với dữ liệu chuyến bay](images/6.png)
 * Để đảm bảo có thể phục vụ được số lượng request lớn, chương trình có sử dụng nhiều tiến trình con cùng phục vụ đồng thời các request của phía client gửi lên. Số tiến trình này sẽ bằng số core của CPU trên máy chủ chương trình đang chạy
 * Mỗi khi nhận được req ghi log từ phía client, hệ thống check xem _token  có hợp lệ hay không, nếu hợp lệ thì chương trình sẽ chuyển dữ liệu cần lưu tới woker chịu trách nhiệm ghi log vào cơ sở dữ liệu
+![Thử nghiệm với dữ liệu chuyến bay](images/111.png)
 * Woker chịu trách nhiệm ghi xuống cơ sở dữ liệu cũng sử dụng nhiều tiến trình con nhằm tối ưu tốc độ ghi xuống cơ sở dữ liệu. Các woker sẽ lấy các log được gửi tới trong một hàng đợi (queue) và ghi vào cơ sở dữ liệu, nếu xảy ra lỗi trong quá trình ghi thì log đó sẽ được đưa lại hàng đợi  và thực hiện ghi lại
+![Thử nghiệm với dữ liệu chuyến bay](images/2222.png)
 * Thử nghiệm với bộ dữ liệu:
 ```
  {
@@ -79,4 +82,4 @@
 ![Thử nghiệm với dữ liệu chuyến bay](images/9.png)
 * THử nghiệm tương tự nhưng gửi 50k request đến server, kết quả hệ thống tương tự trường hợp trên tức 5k req/s
 ![Thử nghiệm với dữ liệu chuyến bay](images/333.png)
-* 
+ 
