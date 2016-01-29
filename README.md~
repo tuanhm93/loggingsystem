@@ -76,7 +76,5 @@
 }
 ```
 * Thử nghiệm được thực hiện dựa trên việc gửi 10k request tới server, với 5 luồng liên tục thì kết quả cho thấy hệ thống có thể phục vụ khoảng 5k req/s
-![Thử nghiệm với dữ liệu chuyến bay](images/9.png)
 * THử nghiệm tương tự nhưng gửi 50k request đến server, kết quả hệ thống tương tự trường hợp trên tức 5k req/s
-![Thử nghiệm với dữ liệu chuyến bay](images/333.png)
 * 
