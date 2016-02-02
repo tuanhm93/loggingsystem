@@ -52,25 +52,25 @@
       * => lưu có nén mất 57MB trong khi lưu không nén mất 464MB
       * => tuy nhiên bộ dữ liệu test khác nhau có thể dẫn đến kết quả khác nhau
       * => cũng đã có rất nhiều các thử nghiệm tương tự trên mạng cho kết quả khá tốt  về sử dụng nén dữ liệu, dưới đây là một vài kết quả thực nghiệm  lấy từ cộng đồng mạng
-![Thử nghiệm với dữ liệu chuyến bay](http://4.bp.blogspot.com/-vCqIGlS1Ar4/VNkC2IeMsJI/AAAAAAAAB78/7E-Ulo6b_WM/s1600/se-shootout-02-adamc-compression-size.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](http://4.bp.blogspot.com/-vCqIGlS1Ar4/VNkC2IeMsJI/AAAAAAAAB78/7E-Ulo6b_WM/s1600/se-shootout-02-adamc-compression-size.png)
       * Thử nghiệm tương tự trên với bộ dữ liệu khác
       ![Thử nghiệm với dữ liệu chuyến bay](http://1.bp.blogspot.com/-AP6ez18phq0/VNkFtBph-9I/AAAAAAAAB8U/51I0Xn3pDqs/s1600/se-shootout-02-andyp-compression-size.png)
       * Như trên biểu đồ cho thấy ngay cách tổ chức lưu trữ dữ liệu của các engine cũng ảnh hưởng tới dung lượng dữ liệu khi chưa cần nén
       * **Note**: Đối với riêng wired tiger cũng sẽ có các tùy chọn nén khác nhau, mặc định mongodb sẽ sử dụng Snappy
 * Từ kết quả  thực nghiệm trên, cũng như tham khảo thêm một vài thử nghiệm tương tự của cộng đồng mạng thì có thể thấy rằng giải pháp sử dụng nén của mongodb đi kèm khá tốt, có một vài storage engine bên ngoài cho kết quả tốt hơn như tokumx, tokumxse, rocksdb nhưng thường phiên bản mongodb kèm theo thường là bản cũ cụ thể tokumx chỉ hỗ trợ mongodb v2.4 là cao nhất hiện nay, và cũng khó đảm bảo tính ổn định của nó trong thực tế, thứ hai là các tính năng, hiệu năng cải thiện ở phiên bản mới cũng không được áp dụng
 * Mặc dù nén dữ liệu như trên tuy nhiên hiệu năng đọc ghi của nó vẫn rất tốt, dưới đây là hình ảnh về kết quả thử nghiệm về khả năng ghi dữ liệu của wiredtiger so với mmapv1 và một storage engine Tokumxse tham khảo trên cộng đồng mạng
-![Thử nghiệm với dữ liệu chuyến bay](http://1.bp.blogspot.com/-37s7efPfxVs/VNn_WRixrxI/AAAAAAAAB8s/lYij_8g_gLs/s1600/se-shootout-02-adamc-compression-speed.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](http://1.bp.blogspot.com/-37s7efPfxVs/VNn_WRixrxI/AAAAAAAAB8s/lYij_8g_gLs/s1600/se-shootout-02-adamc-compression-speed.png)
 
 ## Hiệu năng hệ thống
 * Do số lượng log được gửi lên server là khá cáo do đó hệ thống phải đảm bảo phản hồi xác nhận kịp thời về cho phía client, tiếp theo đó là do theo thời gian lượng client sử dụng hệ thống càng tăng dẫn đến hệ thống phải đảm bảo trong tương lai có thể phục vụ được một số lượng client đủ lớn
 * Hệ thống được xây dựng trên nền tảng Node.js, lưu trữ dữ liệu trong cơ sở dữ liệu mongodb, và một woker chịu trách nhiệm ghi log vào cơ sở dữ liệu sử dụgn redis database để lưu dữ liệu tạm thời
 * Luồng làm việc thì khi làm việc với hệ thống, client sẽ phải đăng ký một app với hệ thống, khi đó hệ thống sẽ gửi về một _token được sử dụng để phân biệt các app, mỗi lần muốn lưu log vào hệ thống, client sẽ phải gửi kèm theo _token nếu _token không hợp lệ thì sẽ báo lỗi
-![Thử nghiệm với dữ liệu chuyến bay](images/6.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/6.png)
 * Để đảm bảo có thể phục vụ được số lượng request lớn, chương trình có sử dụng nhiều tiến trình con cùng phục vụ đồng thời các request của phía client gửi lên. Số tiến trình này sẽ bằng số core của CPU trên máy chủ chương trình đang chạy
 * Mỗi khi nhận được req ghi log từ phía client, hệ thống check xem _token  có hợp lệ hay không, nếu hợp lệ thì chương trình sẽ chuyển dữ liệu cần lưu tới woker chịu trách nhiệm ghi log vào cơ sở dữ liệu
-![Thử nghiệm với dữ liệu chuyến bay](images/111.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/111.png)
 * Woker chịu trách nhiệm ghi xuống cơ sở dữ liệu cũng sử dụng nhiều tiến trình con nhằm tối ưu tốc độ ghi xuống cơ sở dữ liệu. Các woker sẽ lấy các log được gửi tới trong một hàng đợi (queue) và ghi vào cơ sở dữ liệu, nếu xảy ra lỗi trong quá trình ghi thì log đó sẽ được đưa lại hàng đợi  và thực hiện ghi lại
-![Thử nghiệm với dữ liệu chuyến bay](images/2222.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/2222.png)
 * Thử nghiệm với bộ dữ liệu:
 ```
  {
@@ -80,9 +80,9 @@
 }
 ```
 * Thử nghiệm được thực hiện dựa trên việc gửi 10k request tới server, với 5 luồng liên tục thì kết quả cho thấy hệ thống có thể phục vụ khoảng 5k req/s
-![Thử nghiệm với dữ liệu chuyến bay](images/9.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/9.png)
 * THử nghiệm tương tự nhưng gửi 50k request đến server, kết quả hệ thống tương tự trường hợp trên tức 5k req/s
-![Thử nghiệm với dữ liệu chuyến bay](images/333.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/333.png)
 
 ## Worker xử lý ghi log xuống cơ sở dữ liệu
 * Các yêu cầu lưu trữ log từ phía client gửi đến server sẽ được chuyển tới một worker làm nhiệm vụ lưu trữ dữ liệu log xuống cơ sở dữ liệu (mongodb)
@@ -90,8 +90,8 @@
 * [Kue](https://github.com/Automattic/kue) sử dụng redis database làm nơi lưu trữ dữ liệu công việc (các log cần lưu trữ)
 * Như vậy thì service phục vụ các request ghi log từ client sẽ có kết nối tới redis database dùng chung này. Khi có log gửi tới nó chỉ đơn giản là gửi dữ liệu log này tới redis database và worker thì chỉ việc lấy dữ liệu và xử lý
 * Đoạn mã cho việc xử lý yêu cầu lưu trữ log vào hệ thống:
-![Thử nghiệm với dữ liệu chuyến bay](images/savelog.png)
-![Thử nghiệm với dữ liệu chuyến bay](images/sendlogtoqueue.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/savelog.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/sendlogtoqueue.png)
 * Ta thấy rằng hệ thống chỉ đơn giản là kiểm tra **_token** (một định danh để xác định app, game trong hệ thống), nếu **_token** hợp lệ thì dữ liệu được gửi lên sẽ được chuyển vào redis database qua hàm **sendLogToQueue(req.query, 0)** 
 * **sendLogToQueue(req.query, 0)** sử dụng hàm xây dựng sẵn của module [kue](https://github.com/Automattic/kue) để tạo ra 1 công việc (log cần lưu trữ) rồi gửi vào database redis
 * Tuy nhiên ở đây sẽ tiềm tàng lỗi đó là nếu kết nối tới redis database gặp vấn đề, hoặc có kết nối nhưng gặp một vấn đề gì đó dẫn tới việc gửi dữ liệu xuống redis không thành công
@@ -100,7 +100,7 @@
 * Về phía worker khi bị mất kết nối tới redis cũng sẽ reconnect lại cho đến khi thành công trong vòng 1 tiếng
 * Hàm xử lưu trữ log phía worker:
 
-![Thử nghiệm với dữ liệu chuyến bay](images/saveLogWorker.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/saveLogWorker.png)
 * Sau khi lấy dữ liệu log và qua một vài thao tác tiền xử lý sẽ đẩy log vào đúng app, game cần lưu
 * 1 công việc trong [kue](https://github.com/Automattic/kue) sẽ có 3 trạng thái cần quan tâm đó là: 
 	* active: log đang được xử lý
@@ -108,7 +108,7 @@
 	* failed: log đã được xử lý và thất bại (không lưu được vào cơ sở dữ liệu)
 * Khi log được xử lý thành công thì hệ thống sẽ xóa luôn khỏi redis
 * Khi log xử lý thất bại thì sẽ có một hàm cứ sau 1 phút sẽ chạy một lần nhằm check các log xử lý bị thất bại và đưa lại vào trạng thái inactive để được xử lý lại: 
-![Thử nghiệm với dữ liệu chuyến bay](images/fixjob.png)
+  ![Thử nghiệm với dữ liệu chuyến bay](images/fixjob.png)
 
 * Việc sử dụng 1 cơ sở dữ liệu làm cầu nối trung gian giữa worker và web service sẽ có điểm khá hay đó là dù có tắt worker đi thì dữ liệu log cũng sẽ không bị mất do đã được lưu trữ ở redis
 * Trường hợp mongodb bị shutdown thì về mặt web service 1 vài API sẽ k sử dụng được và sẽ có thông báo về cho client, tuy nhiên API cho việc lưu trữ log vấn hoạt động, mặc định driver mongodb cũng sẽ tự động reconnect lại
