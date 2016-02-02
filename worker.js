@@ -19,7 +19,6 @@ function saveLog(job, done){
     var collection = job.data._token;
     delete job.data._token;
     // Create a expire time to automatic remove log
-
     if(job.data.time != undefined){
         job.data.expireTime = moment(job.data.time).toDate();
     }else{

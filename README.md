@@ -99,6 +99,7 @@
 	* Trường hợp có kết nối nhưng vì một lý do gì đó log đã không được gửi thành công tới redis: Khi có lỗi như vậy xảy ra hệ thống sẽ thực hiện lại việc gửi log này tới redis 4 lần, mỗi phút một lần, nếu thất bại tất thì log sẽ được lưu trữ ra file, tuy nhiên trường hợp lỗi kiểu này rất ít khi xảy ra
 * Về phía worker khi bị mất kết nối tới redis cũng sẽ reconnect lại cho đến khi thành công trong vòng 1 tiếng
 * Hàm xử lưu trữ log phía worker:
+
 ![Thử nghiệm với dữ liệu chuyến bay](images/saveLogWorker.png)
 * Sau khi lấy dữ liệu log và qua một vài thao tác tiền xử lý sẽ đẩy log vào đúng app, game cần lưu
 * 1 công việc trong [kue](https://github.com/Automattic/kue) sẽ có 3 trạng thái cần quan tâm đó là: 

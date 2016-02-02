@@ -53,6 +53,7 @@ if(cluster.isMaster) {
           new (winston.transports.File)({ filename: 'loggingsystem.log' })
         ]
       });
+
   // Connect to mongodb
   MongoClient.connect(url, function(err, database) {
     if(err) throw err;
@@ -108,6 +109,7 @@ if(cluster.isMaster) {
       console.log(e);
     });
   });
+
   //Route for delete an app in system
   app.get('/deleteApp', function(req, res){
     if(appList.indexOf(req.query._token) != -1){ 
@@ -132,6 +134,7 @@ if(cluster.isMaster) {
       });
     }
   });
+
   //Route for get list all apps avaible in system
   app.get('/getListApps', function(req, res){
     db.collection('apps').find().toArray()
@@ -143,18 +146,19 @@ if(cluster.isMaster) {
       });
   });
 
+  // Route for create am index to a collection in mongodb
   app.get('/createIndex', function(req, res){
     if(appList.indexOf(req.query._token) != -1){ // Check whether _token is valid or not
       var collection = req.query._token;
       delete req.query._token;
-      db.collection(collection).ensureIndex(req.query, null, function(err, results) {
-        if(err){
+      req.query.time = 1;
+      db.collection(collection).createIndex(req.query, {background: true})
+        .then(function(indexName){
+          res.json({success: true});
+        }).catch(function(err){
           console.log(err);
           res.json({success: false, message: 'Something went wrong'});
-        }else{
-          res.json({success: true});
-        }
-      });
+        });
     }else{
       res.send({
         success: false,
@@ -163,43 +167,34 @@ if(cluster.isMaster) {
     }
   });
 
-  // app.get('/deleteIndex', function(req, res){
-  //   if(appList.indexOf(req.query._token) != -1){ // Check whether _token is valid or not
-  //     var collection = req.query._token;
-  //     req.query._id = 1;
-  //     delete req.query._token;
-  //     db.collection(collection).dropIndex(req.query, null, function(err, results) {
-  //       if(err){
-  //         res.json({success: false, message: 'Something went wrong'});
-  //       }else{
-  //         res.json({success: true});
-  //       }
-  //     });
-  //   }else{
-  //     res.send({
-  //       success: false,
-  //       message: "Doesn't exist an app with _token: "+ req.query._token
-  //     });
-  //   }
-  // });
-
-  app.get('/getListIndexes', function(req, res){
-    console.log('List index');
+  // Route for delete an index in a collection in mongodb
+  app.get('/deleteIndex', function(req, res){
     if(appList.indexOf(req.query._token) != -1){ // Check whether _token is valid or not
-      var cursor = db.collection(req.query._token).listIndexes();
-      var listIndexes = [];
-      cursor.each(function(err, doc) {
-        if(err){
+      db.collection(req.query._token).dropIndex(req.query.indexName)
+        .then(function(results){
+          res.json({success: true});
+        }).catch(function(err){
+          res.json({success: false});
           console.log(err);
-          res.json({success: false})
-        }else{
-          if(doc != null){
-            listIndexes.push(doc);
-          }else{
-            res.json({success: true, listIndexes});
-          }
-        }
+        });
+    }else{
+      res.json({
+        success: false,
+        message: "Doesn't exist an app with _token: "+ req.query._token
       });
+    }
+  });
+
+  // Get all indexes in a collection
+  app.get('/getListIndexes', function(req, res){
+    if(appList.indexOf(req.query._token) != -1){ // Check whether _token is valid or not
+      db.collection(req.query._token).listIndexes().toArray()
+        .then(function(listIndexes){
+          res.json({success: true, listIndexes});
+        }).catch(function(err){
+          res.json({success: false, message: 'System error'});
+          console.log(err);
+        });
     }else{
       res.send({
         success: false,
@@ -212,6 +207,7 @@ if(cluster.isMaster) {
    
   });
 
+  // Search log 
   app.get('/search', function(req, res){
     if(appList.indexOf(req.query._token) != -1){ // Check whether _token is valid or not
       var collection = req.query._token;
@@ -223,18 +219,18 @@ if(cluster.isMaster) {
       delete req.query.page;
 
       if(req.query.startTime != undefined && req.query.endTime != undefined){
-        req.query.time = {'$gte': moment(req.query.startTime).toDate().getTime(), '$lte': moment(req.query.endTime).toDate().getTime() };
+        req.query.time = {'$gte': +moment(req.query.startTime, "DD-MM-YYYY"), '$lte': +moment(req.query.endTime, "DD-MM-YYYY")};
         delete req.query.startTime;
         delete req.query.endTime;
       }else if(req.query.startTime != undefined){
-        req.query.time = {'$gte': moment(req.query.startTime).toDate().getTime()};
+        req.query.time = {'$gte': +moment(req.query.startTime, "DD-MM-YYYY")};
         delete req.query.startTime;
       }else if(req.query.endTime != undefined){
-        req.query.time = {'$lte': moment(req.query.endTime).toDate().getTime()};
+        req.query.time = {'$lte': +moment(req.query.endTime, "DD-MM-YYYY")};
         delete req.query.endTime;
       }
     
-      db.collection(collection).find(req.query).skip(skip).limit(limit).toArray()
+      db.collection(collection).find(req.query, {_id: 0, expireTime: 0}).skip(skip).limit(limit).toArray()
         .then(function(logs){
           res.json({success: true, logs});
         }).catch(function(e){
