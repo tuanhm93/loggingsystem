@@ -60,6 +60,7 @@
 * Từ kết quả  thực nghiệm trên, cũng như tham khảo thêm một vài thử nghiệm tương tự của cộng đồng mạng thì có thể thấy rằng giải pháp sử dụng nén của mongodb đi kèm khá tốt, có một vài storage engine bên ngoài cho kết quả tốt hơn như tokumx, tokumxse, rocksdb nhưng thường phiên bản mongodb kèm theo thường là bản cũ cụ thể tokumx chỉ hỗ trợ mongodb v2.4 là cao nhất hiện nay, và cũng khó đảm bảo tính ổn định của nó trong thực tế, thứ hai là các tính năng, hiệu năng cải thiện ở phiên bản mới cũng không được áp dụng
 * Mặc dù nén dữ liệu như trên tuy nhiên hiệu năng đọc ghi của nó vẫn rất tốt, dưới đây là hình ảnh về kết quả thử nghiệm về khả năng ghi dữ liệu của wiredtiger so với mmapv1 và một storage engine Tokumxse tham khảo trên cộng đồng mạng
 ![Thử nghiệm với dữ liệu chuyến bay](http://1.bp.blogspot.com/-37s7efPfxVs/VNn_WRixrxI/AAAAAAAAB8s/lYij_8g_gLs/s1600/se-shootout-02-adamc-compression-speed.png)
+
 ## Hiệu năng hệ thống
 * Do số lượng log được gửi lên server là khá cáo do đó hệ thống phải đảm bảo phản hồi xác nhận kịp thời về cho phía client, tiếp theo đó là do theo thời gian lượng client sử dụng hệ thống càng tăng dẫn đến hệ thống phải đảm bảo trong tương lai có thể phục vụ được một số lượng client đủ lớn
 * Hệ thống được xây dựng trên nền tảng Node.js, lưu trữ dữ liệu trong cơ sở dữ liệu mongodb, và một woker chịu trách nhiệm ghi log vào cơ sở dữ liệu sử dụgn redis database để lưu dữ liệu tạm thời
@@ -82,4 +83,42 @@
 ![Thử nghiệm với dữ liệu chuyến bay](images/9.png)
 * THử nghiệm tương tự nhưng gửi 50k request đến server, kết quả hệ thống tương tự trường hợp trên tức 5k req/s
 ![Thử nghiệm với dữ liệu chuyến bay](images/333.png)
-* 
+
+## Worker xử lý ghi log xuống cơ sở dữ liệu
+* Các yêu cầu lưu trữ log từ phía client gửi đến server sẽ được chuyển tới một worker làm nhiệm vụ lưu trữ dữ liệu log xuống cơ sở dữ liệu (mongodb)
+* Hệ thống sử dụng module của node js là [kue](https://github.com/Automattic/kue) để xây dựng worker
+* [Kue](https://github.com/Automattic/kue) sử dụng redis database làm nơi lưu trữ dữ liệu công việc (các log cần lưu trữ)
+* Như vậy thì service phục vụ các request ghi log từ client sẽ có kết nối tới redis database dùng chung này. Khi có log gửi tới nó chỉ đơn giản là gửi dữ liệu log này tới redis database và worker thì chỉ việc lấy dữ liệu và xử lý
+* Đoạn mã cho việc xử lý yêu cầu lưu trữ log vào hệ thống:
+![Thử nghiệm với dữ liệu chuyến bay](images/savelog.png)
+![Thử nghiệm với dữ liệu chuyến bay](images/sendlogtoqueue.png)
+* Ta thấy rằng hệ thống chỉ đơn giản là kiểm tra **_token** (một định danh để xác định app, game trong hệ thống), nếu **_token** hợp lệ thì dữ liệu được gửi lên sẽ được chuyển vào redis database qua hàm **sendLogToQueue(req.query, 0)** 
+* **sendLogToQueue(req.query, 0)** sử dụng hàm xây dựng sẵn của module [kue](https://github.com/Automattic/kue) để tạo ra 1 công việc (log cần lưu trữ) rồi gửi vào database redis
+* Tuy nhiên ở đây sẽ tiềm tàng lỗi đó là nếu kết nối tới redis database gặp vấn đề, hoặc có kết nối nhưng gặp một vấn đề gì đó dẫn tới việc gửi dữ liệu xuống redis không thành công
+	* Trường hợp kết nối tới redis gặp vấn đề, rất may là driver redis đã xử lý vấn đề này bằng cách sẽ reconnect liên tục trong vòng 1h (đây là mặc định). Và toàn bộ các câu lệnh thực thi sẽ được driver này lưu trữ và thực thi ngay khi kết nối lại thành công. Hệ thống đã thử nghiệm với một log dữ liệu như trên thì lưu trữ được khoảng 200.000 request log, giả sử 1s hệ thống nhận 100 req log thì sẽ có thể lưu trữ trong khoảng 30 phút. Tuy nhiên việc lưu trữ lại nhiều là không tốt tại khi có kết nối lại thì nó sẽ thực thi luôn rất hao tốn tài nguyên CPU, RAM. Chính vì thế ngay khi có lỗi xảy ra với kết nối redis hệ thống sẽ có thông báo tới người quản trị qua email để khắc phục ngay nhằm tránh rủi ro về mất mát log
+	* Trường hợp có kết nối nhưng vì một lý do gì đó log đã không được gửi thành công tới redis: Khi có lỗi như vậy xảy ra hệ thống sẽ thực hiện lại việc gửi log này tới redis 4 lần, mỗi phút một lần, nếu thất bại tất thì log sẽ được lưu trữ ra file, tuy nhiên trường hợp lỗi kiểu này rất ít khi xảy ra
+* Về phía worker khi bị mất kết nối tới redis cũng sẽ reconnect lại cho đến khi thành công trong vòng 1 tiếng
+* Hàm xử lưu trữ log phía worker:
+![Thử nghiệm với dữ liệu chuyến bay](images/saveLogWorker.png)
+* Sau khi lấy dữ liệu log và qua một vài thao tác tiền xử lý sẽ đẩy log vào đúng app, game cần lưu
+* 1 công việc trong [kue](https://github.com/Automattic/kue) sẽ có 3 trạng thái cần quan tâm đó là: 
+	* active: log đang được xử lý
+	* inactive: log đã sẵn sàng để được xử lý
+	* failed: log đã được xử lý và thất bại (không lưu được vào cơ sở dữ liệu)
+* Khi log được xử lý thành công thì hệ thống sẽ xóa luôn khỏi redis
+* Khi log xử lý thất bại thì sẽ có một hàm cứ sau 1 phút sẽ chạy một lần nhằm check các log xử lý bị thất bại và đưa lại vào trạng thái inactive để được xử lý lại: 
+![Thử nghiệm với dữ liệu chuyến bay](images/fixjob.png)
+
+* Việc sử dụng 1 cơ sở dữ liệu làm cầu nối trung gian giữa worker và web service sẽ có điểm khá hay đó là dù có tắt worker đi thì dữ liệu log cũng sẽ không bị mất do đã được lưu trữ ở redis
+* Trường hợp mongodb bị shutdown thì về mặt web service 1 vài API sẽ k sử dụng được và sẽ có thông báo về cho client, tuy nhiên API cho việc lưu trữ log vấn hoạt động, mặc định driver mongodb cũng sẽ tự động reconnect lại
+* Đối với worker thì các job sẽ đều failed và sẽ được đẩy lại trạng thái inactive mỗi 1 phút tuy nhiên cũng cần phải khắc phục sớm để tránh dữ liệu công việc lưu trữ tại redis là quá lớn
+
+
+
+
+
+
+
+
+
+ 
