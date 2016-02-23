@@ -42,6 +42,7 @@ if(cluster.isMaster) {
       // }),
       promise = require('bluebird'),
       moment = require('moment'),
+      async = require('async'),
       mongodb = require('mongodb'),
       MongoClient = mongodb.MongoClient,
       url = 'mongodb://localhost:1234/test',
@@ -55,36 +56,45 @@ if(cluster.isMaster) {
       });
 
   // Connect to mongodb
-  MongoClient.connect(url, function(err, database) {
-    if(err) throw err;
+  // MongoClient.connect(url, function(err, database) {
+  //   if(err) throw err;
 
-    db = database;
+  //   db = database;
 
-    db.collection('apps').find({}, {'_id': 1}).toArray()
-      .then(function(results){
-        results.forEach((item)=>{
-          appList.push(item._id.toString());
-        });
-      }).catch(function(e){
-        throw e;
-      });
+  //   db.collection('apps').find({}, {'_id': 1}).toArray()
+  //     .then(function(results){
+  //       results.forEach((item)=>{
+  //         appList.push(item._id.toString());
+  //       });
 
-    app.listen(8000);
-    console.log('Process ' + process.pid + ' is listening to all incoming requests');
-  });
+  //     }).catch(function(e){
+  //       throw e;
+  //     });
+
+  //   app.listen(8000);
+  //   console.log('Process ' + process.pid + ' is listening to all incoming requests');
+  // });
+
+  // Connect to mongodb
+  connectToMongo(url, 1);
 
   // Route for save log 
   app.get('/saveLog', function(req, res){
 
     if(appList.indexOf(req.query._token) != -1){ // Check whether _token is valid or not
-      res.send({
+      res.json({
         success: true
       });
       
+      
+      // console.time('taskA');
+      // async.setImmediate(function () {
+      //   sendLogToQueue(req.query, 0);
+      // });
       sendLogToQueue(req.query, 0); // Send log to redis database
-
+      // console.timeEnd('taskA');
     }else{
-      res.send({
+      res.json({
         success: false,
         message: "Doesn't exist an app with _token: "+ req.query._token
       });
@@ -245,6 +255,16 @@ if(cluster.isMaster) {
     }
   });
 
+app.get('/changeConcurency', function(req, res){
+  queue.create('changeConcurency', req.query).removeOnComplete(true).save(function(err){
+    if(err){
+      res.json({success: false});
+    }else{
+      res.json({success: true});
+    }
+  });
+});
+
   process.on('message', function(message){
     console.log(message);
     if(message.task == 'addApp'){
@@ -277,5 +297,46 @@ if(cluster.isMaster) {
         }
       }
     });
+  }
+
+  function connectToMongo(url, times){
+    MongoClient.connect(url)
+      .then(function(database){
+        console.log('Connect to mongodb success');
+        db = database;
+
+        // Listen for some events
+        db.on('reconnect', function(data){
+          console.log('Reconnect success');
+        });
+        db.on('error', function(err){
+          console.log(err);
+        });
+        db.on('close', function(err){
+          console.log('Disconnect from mongodb');
+        });
+
+        return db.collection('apps').find({}, {'_id': 1}).toArray();
+      }).then(function(results){
+        results.forEach((item)=>{
+          appList.push(item._id.toString());
+        });
+
+        app.listen(8000);
+        console.log('Process ' + process.pid + ' is listening to all incoming requests');
+      }).catch(function(err){
+        if(times == 1){
+          console.log(err);
+          console.log('Trying to connect to mongodb...');
+          times++;
+        }
+        if(db != undefined){
+          db.close();
+          db = undefined;
+        }    
+        setTimeout(function(){
+          connectToMongo(url, times);
+        }, 3000);
+      });
   }
 }

@@ -1,3 +1,5 @@
+"use strict";
+
 var kue = require('kue');
 kue.app.listen(3000);                                              
 var queue = kue.createQueue({jobEvents: false}); 
@@ -6,13 +8,29 @@ var mongodb = require('mongodb'),
     moment = require('moment'),
     url = 'mongodb://localhost:1234/test',
     db;
+// Connect to mongodb
+connectToMongo(url, 1);
 
-MongoClient.connect(url,function(err, database) {
-    if(err) throw err;
-    db = database;
-    queue.process('saveLog', 20, function (job, done){
+queue.process('changeConcurency', function(job, done){
+  queue.shutdown(5000, 'saveLog', function(err){
+    if(!err){
+      for(let i=0; i<kue.workers.length; i++){
+        if(kue.workers[i].type == 'saveLog'){
+          kue.workers.splice(i, 1);
+          i--;
+        }
+      }
+
+      queue.process('saveLog', Number(job.data.concurentNumber), function(job, done){
         saveLog(job, done);
-    });
+        console.log(kue.workers.length);
+      });
+
+      done();
+    }else{
+      done(err);
+    }
+  });
 });
 
 function saveLog(job, done){
@@ -25,15 +43,14 @@ function saveLog(job, done){
         job.data.expireTime = moment().toDate();
     }
 
-    db.collection(collection).insertOne(job.data, function(err, result) {
-        if(err){
+    db.collection(collection).insertOne(job.data)
+        .then(function(results){
+            done();
+        }).catch(function(err){
             delete job.data.expireTime;
             job.data._token = collection;
-            done(err); // Mark job has failed
-        }else{
-            done(); // Mark job has been completed
-        }
-    });
+            done(err);
+        });
 }
 
 queue.on('job failed', function(id, err){
@@ -66,6 +83,26 @@ function fixFailedJobs(){
 
 setInterval(fixFailedJobs, 60000);
 
+function checkNumberJob(times){
+  queue.inactiveCount( function( err, total ) { // others are activeCount, completeCount, failedCount, delayedCount
+    if( total > 100000 ) {
+      if(times == 1){
+        //Send email to administrator
+        //If success change times...
+      }
+    }else{
+      if(times != 1){
+        times = 1;
+      }
+    }
+    setTimeout(function(){
+      checkNumberJob(times);
+    }, 60000)
+  });
+}
+
+checkNumberJob(1);
+
 //Graceful shutdown
 process.once( 'SIGTERM', function ( sig ) {
   queue.shutdown( 10000, function(err) {
@@ -74,10 +111,35 @@ process.once( 'SIGTERM', function ( sig ) {
   });
 });
 
+function connectToMongo(url, times){
+    MongoClient.connect(url)
+      .then(function(database){
+        console.log('Connect to mongodb success');
+        db = database;
+        queue.process('saveLog', function(job, done){
+          console.log(kue.workers.length);
+          saveLog(job, done);
+        });
+        // Listen for some events
+        db.on('reconnect', function(data){
+          console.log('Reconnect success');
+        });
+        db.on('error', function(err){
+          console.log(err);
+        });
+        db.on('close', function(err){
+          console.log('Disconnect from mongodb')
+        });
 
-
-
-
-
-
-
+      }).catch(function(err){
+        if(times == 1){
+          console.log(err);
+          console.log('Trying to connect to mongodb...');
+          times++;
+        }
+     
+        setTimeout(function(){
+          connectToMongo(url, times);
+        }, 3000);
+      });
+}
