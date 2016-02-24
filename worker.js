@@ -1,145 +1,191 @@
 "use strict";
 
-var kue = require('kue');
-kue.app.listen(3000);                                              
-var queue = kue.createQueue({jobEvents: false}); 
-var mongodb = require('mongodb'),
-    MongoClient = mongodb.MongoClient,
-    moment = require('moment'),
-    url = 'mongodb://localhost:1234/test',
-    db;
-// Connect to mongodb
-connectToMongo(url, 1);
+var cluster = require('cluster');
 
-queue.process('changeConcurency', function(job, done){
-  queue.shutdown(5000, 'saveLog', function(err){
-    if(!err){
-      for(let i=0; i<kue.workers.length; i++){
-        if(kue.workers[i].type == 'saveLog'){
-          kue.workers.splice(i, 1);
-          i--;
-        }
-      }
+if(cluster.isMaster) {
+  var RabbitMQ = require('./lib/rabbitmq.js'),
+      numWorkers = require('os').cpus().length,
+      rabbitMQ = new RabbitMQ({url: 'amqp://localhost'}),
+      CleanUp = require('./lib/cleanup.js'),
+      count = 0,
+      channel = null;
 
-      queue.process('saveLog', Number(job.data.concurentNumber), function(job, done){
-        saveLog(job, done);
-        console.log(kue.workers.length);
+  rabbitMQ.init();
+
+  rabbitMQ.on('ready', function(){
+  	channel = RabbitMQ.channel;
+
+  	channel.prefetch(1)
+      .then(function(){
+        return channel.assertQueue('task', {durable: true});
+      }).then(function(qok){
+        startTaskConsume();
       });
-
-      done();
-    }else{
-      done(err);
-    }
   });
-});
 
-function saveLog(job, done){
-    var collection = job.data._token;
-    delete job.data._token;
-    // Create a expire time to automatic remove log
-    if(job.data.time != undefined){
-        job.data.expireTime = moment(job.data.time).toDate();
-    }else{
-        job.data.expireTime = moment().toDate();
-    }
+  function startTaskConsume(){
+    console.log('Consume master has been started');
+    channel.consume('task', handleFunction, {noAck: false});
+  }
 
-    db.collection(collection).insertOne(job.data)
-        .then(function(results){
-            done();
-        }).catch(function(err){
-            delete job.data.expireTime;
-            job.data._token = collection;
-            done(err);
-        });
-}
-
-queue.on('job failed', function(id, err){
-    console.log('job failed: '+id);
-    console.log(err);
-});
-
-queue.on( 'error', function( err ) {
-  // Send email or something...
-  console.log( 'Oops... ', err );
-});
-
-// Watch for job can't be done (always active)
-queue.watchStuckJobs(60000); // to watch for stuck jobs
-
-//Fix jobs failed
-function fixFailedJobs(){
-    queue.failed( function( err, ids ) {
-        if(!err){
-            ids.forEach( function( id ) {
-                kue.Job.get( id, function( err, job ) {
-                    if(!err){
-                        job.inactive();
-                    }
-                });
-            });
+  function handleFunction(msg) {
+    try{
+      let data = JSON.parse(msg.content);
+      if(data.task == 'changeNumberWorkers'){
+        let number = Number(data.numberWorkers) || -1;
+        let keyWorkers = Object.keys(cluster.workers);
+        if(number > 0){
+          if(number < keyWorkers.length){
+            // kill process
+            let count = keyWorkers.length - number;
+            for(let i=0;i<count;i++){
+              cluster.workers[keyWorkers[i]].kill('SIGTERM');
+            }
+            
+          }else if(number > keyWorkers.length){
+            // fork process
+            let count = number - keyWorkers.length;
+            for(let i=0;i<count;i++){
+              cluster.fork();
+            }
+          }  
         }
-    });
-}
-
-setInterval(fixFailedJobs, 60000);
-
-function checkNumberJob(times){
-  queue.inactiveCount( function( err, total ) { // others are activeCount, completeCount, failedCount, delayedCount
-    if( total > 100000 ) {
-      if(times == 1){
-        //Send email to administrator
-        //If success change times...
-      }
-    }else{
-      if(times != 1){
-        times = 1;
-      }
+      }  
+    }catch(e){
+      console.error('[Master] JSON parse', e.message);
+    }finally{
+      channel.ack(msg); // Tell rabbitmq to remove msg from queue, serious!!!
     }
-    setTimeout(function(){
-      checkNumberJob(times);
-    }, 60000)
+  }
+
+  console.log('Master cluster setting up ' + numWorkers + ' workers...');
+
+  for(let i = 0; i < numWorkers; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', function(worker, code, signal) {
+    console.log('Worker ' + worker.process.pid + ' died with code: ' + code + ', and signal: ' + signal);
+    if(code == 93){
+      cluster.fork();
+    }
   });
-}
 
-checkNumberJob(1);
+}else{
+  var MongoDB = require('./lib/mongodb.js'),
+  	  mongoDB = new MongoDB({url: 'mongodb://localhost:1234/test'}),
+  	  RabbitMQ = require('./lib/rabbitmq.js'),
+  	  rabbitMQ = new RabbitMQ({url: 'amqp://localhost'}),
+  	  CleanUp = require('./lib/cleanup.js'),
+      db = null,
+      count = 0,
+      moment = require('moment'),
+      url = 'mongodb://localhost:1234/test',
+      consumerTag = '';
 
-//Graceful shutdown
-process.once( 'SIGTERM', function ( sig ) {
-  queue.shutdown( 10000, function(err) {
-    console.log( 'Kue shutdown: ', err||'' );
-    process.exit( 0 );
+  rabbitMQ.init();
+  rabbitMQ.on('ready', function(){
+  	channel = RabbitMQ.channel;
+
+    channel.assertExchange('topic_logs', 'topic', {durable: true})
+      .then(function(){
+        return channel.assertQueue('saveLog', {durable: true});
+      }).then(function(qok){
+        return channel.bindQueue('saveLog', 'topic_logs', '#');
+      }).then(function(){
+        return channel.prefetch(1);
+      }).then(function(){
+        readyToStartWorker();
+      });
   });
-});
 
-function connectToMongo(url, times){
-    MongoClient.connect(url)
-      .then(function(database){
-        console.log('Connect to mongodb success');
-        db = database;
-        queue.process('saveLog', function(job, done){
-          console.log(kue.workers.length);
-          saveLog(job, done);
-        });
-        // Listen for some events
-        db.on('reconnect', function(data){
-          console.log('Reconnect success');
-        });
-        db.on('error', function(err){
-          console.log(err);
-        });
-        db.on('close', function(err){
-          console.log('Disconnect from mongodb')
-        });
+  mongoDB.init();
+  mongoDB.on('ready', function(){
+  	db = MongoDB.db;
 
+  	readyToStartWorker();
+  });
+
+  function startWorkerConsume(){
+    console.log('Worker consume has been started!');
+    channel.consume('saveLog', handleFunction, {noAck: false})
+      .then(function(results){
+        consumerTag = results.consumerTag;
       }).catch(function(err){
-        if(times == 1){
-          console.log(err);
-          console.log('Trying to connect to mongodb...');
-          times++;
-        }
-     
-        setTimeout(function(){
-          connectToMongo(url, times);
-        }, 3000);
+        console.error('[Worker] start worker', err.message);
+        channel.connection.close();
       });
+  }
+
+  function readyToStartWorker(){
+    count++;
+    if(count == 2){
+      startWorkerConsume();
+      count--;
+    }
+  }
+
+  function handleFunction(msg) {
+    try{
+      var data = JSON.parse(msg.content);
+      var collection = data._token || '';
+      if(collection !== ''){
+        delete data._token;
+        let hasSet = false;
+
+        if(data.time != undefined){
+          let miliseconds = Number(data.time) || -1;
+          if(miliseconds != -1){
+            data.expireTime = moment(data.time).toDate(); 
+            hasSet = true;
+          }
+        }
+
+        if(!hasSet){
+          data.expireTime = moment().toDate();
+        }
+
+        db.collection(collection).insertOne(data)
+          .then(function(results){
+            channel.ack(msg); // Tell rabbitmq to remove msg from queue, serious!!!
+          }).catch(function(err){
+            console.error('[Worker] DB error', err.message);
+            channel.nack(msg); // Tell rabbitmq to requeue msg to queue
+          });
+      }else{
+        channel.ack(msg); // Tell rabbitmq to remove msg from queue, serious!!!
+      }
+    }catch(e){
+      if(e instanceof SyntaxError){
+        console.error('[Worker] JSON parse', e.message);
+      }else{
+        console.error('[Worker] MongoDB', e.message);
+      }
+      channel.ack(msg);
+    }
+  }
+
+  function gracefulShutdown(){
+    channel.cancel(consumerTag)
+      .then(function(ok){
+        setTimeout(function(){
+          if(cluster.worker.suicide){
+            process.exit(1);
+          }else{
+            process.exit(93);
+          }
+        }, 5000);
+      }).catch(function(err){
+        setTimeout(function(){
+          if(cluster.worker.suicide){
+            process.exit(1);        
+          }else{
+            process.exit(93);
+          }
+        }, 5000);
+      });
+  }
+
+  CleanUp(gracefulShutdown);
+
 }

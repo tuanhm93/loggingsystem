@@ -1,6 +1,12 @@
 node_modules/
-./test.js
-./thanbailistener.js
-./webservice.js
-./worker.js
-./worker_preventive.js
+images/
+package.json
+rabbitmqworker.js
+rabbitsender.js
+rabbitreceiver.js
+test.js
+thanbailistener.js
+webservice.js
+workerkue.js
+workerpreventive.js
+
