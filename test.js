@@ -1,1 +1,0 @@
-console.log(+require('moment')('23-2-2015', 'DD-MM-YYYY'));
