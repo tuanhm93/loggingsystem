@@ -108,6 +108,7 @@ if(cluster.isMaster) {
     // app.use(bodyParser.json());
     app.use(bodyParser.raw({type: 'application/json'}));
     
+    // Route for save log
     app.post('/saveLog', function(req, res){
       res.json({sucess: true});
       sendLogToQueue(req.body);
@@ -182,7 +183,7 @@ if(cluster.isMaster) {
           .then(function(logs){
             res.json({success: true, logs});
           }).catch(function(e){
-            console.log(e);
+            console.error('[WebServer] search', e.message);
             res.json({success: false});
           }); 
       }else{
@@ -190,7 +191,6 @@ if(cluster.isMaster) {
       }
     }); 
       
-
     // Change number workers
     app.get('/changeNumberWorkers', function(req, res){
       var numberWorkers = Number(req.query.numberWorkers) || -1;
@@ -202,7 +202,7 @@ if(cluster.isMaster) {
         res.json({success: false});
       }
     });
-    
+
     app.get('/changeExpireTime', function(req, res){
       var collection = req.query._token || '';
       var expireTime = Number(req.query.expireTime)||-1;
@@ -219,6 +219,7 @@ if(cluster.isMaster) {
           }).then(function(result){
             res.json({success: true});
           }).catch(function(err){
+            console.error('[WebServer] changeExpireTime', err.message);
             res.json({success: false});
           });
       }else{
