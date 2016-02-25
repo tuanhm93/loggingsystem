@@ -8,14 +8,19 @@ if(cluster.isMaster) {
       rabbitMQ = new RabbitMQ({url: 'amqp://localhost'}),
       CleanUp = require('./lib/cleanup.js'),
       count = 0,
-      channel = null;
+      amqpConn = null,
+      channel = null,
+      consumerTag = '';
 
   rabbitMQ.init();
+  rabbitMQ.on('connect', function(conn){
+    amqpConn = conn;
+    rabbitMQ.createChannel();
+  });
 
-  rabbitMQ.on('ready', function(){
-  	channel = RabbitMQ.channel;
-
-  	channel.prefetch(1)
+  rabbitMQ.on('created', function(ch){
+    channel = ch;
+    channel.prefetch(1)
       .then(function(){
         return channel.assertQueue('task', {durable: true});
       }).then(function(qok){
@@ -25,7 +30,13 @@ if(cluster.isMaster) {
 
   function startTaskConsume(){
     console.log('Consume master has been started');
-    channel.consume('task', handleFunction, {noAck: false});
+    channel.consume('task', handleFunction, {noAck: false})
+    	.then(function(results){
+        consumerTag = results.consumerTag;
+      }).catch(function(err){
+        console.error('[Master] start consume', err.message);
+        channel.connection.close();
+      });
   }
 
   function handleFunction(msg) {
@@ -71,6 +82,21 @@ if(cluster.isMaster) {
     }
   });
 
+  function gracefulShutdown(){
+  	channel.cancel(consumerTag)
+      .then(function(ok){
+        setTimeout(function(){
+	        process.exit(1);
+        }, 7000);
+      }).catch(function(err){
+	    setTimeout(function(){
+		    process.exit(1);        
+	    }, 7000);
+      });
+  }
+
+  CleanUp(gracefulShutdown);
+
 }else{
   var MongoDB = require('./lib/mongodb.js'),
   	  mongoDB = new MongoDB({url: 'mongodb://localhost:1234/test'}),
@@ -78,14 +104,22 @@ if(cluster.isMaster) {
   	  rabbitMQ = new RabbitMQ({url: 'amqp://localhost'}),
   	  CleanUp = require('./lib/cleanup.js'),
       db = null,
+      amqpConn = null,
+      channel = null,
       count = 0,
       moment = require('moment'),
       url = 'mongodb://localhost:1234/test',
       consumerTag = '';
 
   rabbitMQ.init();
-  rabbitMQ.on('ready', function(){
-  	channel = RabbitMQ.channel;
+
+  rabbitMQ.on('connect', function(conn){
+    amqpConn = conn;
+    rabbitMQ.createChannel();
+  });
+
+  rabbitMQ.on('created', function(ch){
+  	channel = ch;
 
     channel.assertExchange('topic_logs', 'topic', {durable: true})
       .then(function(){
@@ -176,16 +210,18 @@ if(cluster.isMaster) {
           }
         }, 5000);
       }).catch(function(err){
-        setTimeout(function(){
-          if(cluster.worker.suicide){
-            process.exit(1);        
-          }else{
-            process.exit(93);
-          }
-        }, 5000);
+
+	    if(cluster.worker.suicide){
+	       process.exit(1);        
+	    }else{
+	       process.exit(93);
+	    }
+
       });
   }
+  process.on('SIGINT', function(){
+  	cluster.worker.suicide = true;
+  });
 
   CleanUp(gracefulShutdown);
-
 }
