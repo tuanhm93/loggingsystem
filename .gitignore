@@ -9,4 +9,6 @@ thanbailistener.js
 webservice1.js
 workerkue.js
 workerpreventive.js
+generateLog.js
+generateUsers.js
 
