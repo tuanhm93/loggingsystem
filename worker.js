@@ -3,21 +3,20 @@
 var cluster = require('cluster');
 
 if(cluster.isMaster) {
-  var RabbitMQ = require('./lib/rabbitmq.js'),
-      numWorkers = require('os').cpus().length,
-      rabbitMQ = new RabbitMQ({url: 'amqp://localhost'}),
-      CleanUp = require('./lib/cleanup.js'),
-      count = 0,
-      amqpConn = null,
-      channel = null,
-      consumerTag = '';
-
+  var config = require('./config'),
+      cleanUp = require('./lib/cleanup.js'),
+      RabbitMQ = require('./lib/rabbitmq.js'),
+      rabbitMQ = new RabbitMQ({url: config.urlRabbitMQ}),
+      numWorkers = config.numWorkers;
+      
+  var amqpConn = null;
   rabbitMQ.init();
   rabbitMQ.on('connect', function(conn){
     amqpConn = conn;
     rabbitMQ.createChannel();
   });
 
+  var channel = null;
   rabbitMQ.on('created', function(ch){
     channel = ch;
     channel.prefetch(1)
@@ -28,6 +27,7 @@ if(cluster.isMaster) {
       });
   });
 
+  var consumerTag = '';
   function startTaskConsume(){
     console.log('Consume master has been started');
     channel.consume('task', handleFunction, {noAck: false})
@@ -63,7 +63,12 @@ if(cluster.isMaster) {
         }
       }  
     }catch(e){
-      console.error('[Master] JSON parse', e.message);
+      if(e instanceof SyntaxError){
+        console.error('[Master] JSON parse', e.message);
+      }else{
+        console.error('[Master] handleFunction', e.message);
+      }
+      
     }finally{
       channel.ack(msg); // Tell rabbitmq to remove msg from queue, serious!!!
     }
@@ -95,32 +100,27 @@ if(cluster.isMaster) {
       });
   }
 
-  CleanUp(gracefulShutdown);
+  cleanUp(gracefulShutdown);
 
 }else{
-  var MongoDB = require('./lib/mongodb.js'),
-  	  mongoDB = new MongoDB({url: 'mongodb://localhost:1234/test'}),
+  var config = require('./config'),
+      MongoDB = require('./lib/mongodb.js'),
+  	  mongoDB = new MongoDB({url: config.urlMongoDB}),
   	  RabbitMQ = require('./lib/rabbitmq.js'),
-  	  rabbitMQ = new RabbitMQ({url: 'amqp://localhost'}),
-  	  CleanUp = require('./lib/cleanup.js'),
-      db = null,
-      amqpConn = null,
-      channel = null,
-      count = 0,
-      moment = require('moment'),
-      url = 'mongodb://localhost:1234/test',
-      consumerTag = '';
+  	  rabbitMQ = new RabbitMQ({url: config.urlRabbitMQ}),
+  	  cleanUp = require('./lib/cleanup.js'),
+      moment = require('moment');
 
+  var amqpConn = null;
   rabbitMQ.init();
-
   rabbitMQ.on('connect', function(conn){
     amqpConn = conn;
     rabbitMQ.createChannel();
   });
 
+  var channel = null;
   rabbitMQ.on('created', function(ch){
   	channel = ch;
-
     channel.assertExchange('topic_logs', 'topic', {durable: true})
       .then(function(){
         return channel.assertQueue('saveLog', {durable: true});
@@ -133,13 +133,16 @@ if(cluster.isMaster) {
       });
   });
 
+  var db = null;
   mongoDB.init();
-  mongoDB.on('ready', function(){
-  	db = MongoDB.db;
+  mongoDB.on('ready', function(database){
+  	db = database;
 
   	readyToStartWorker();
   });
 
+  var consumerTag = '';
+  var channel = null;
   function startWorkerConsume(){
     console.log('Worker consume has been started!');
     channel.consume('saveLog', handleFunction, {noAck: false})
@@ -151,6 +154,7 @@ if(cluster.isMaster) {
       });
   }
 
+  var count = 0;
   function readyToStartWorker(){
     count++;
     if(count == 2){
@@ -223,5 +227,5 @@ if(cluster.isMaster) {
   	cluster.worker.suicide = true;
   });
 
-  CleanUp(gracefulShutdown);
+  cleanUp(gracefulShutdown);
 }

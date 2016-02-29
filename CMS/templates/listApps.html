@@ -1,0 +1,15 @@
+<div class="row" ng-controller="ListAppsCtrl">
+	<div class="col-sm-10 col-sm-offset-1 well" style="background: #ffffff">
+		Search: <input type="text" class="form-control" id="email" ng-model="searchText">
+	</div>
+	
+	<div class="col-sm-10 col-sm-offset-1 well" ng-repeat="app in listApps | filter:searchText" style="background: #ffffff">
+		<p>_token: {{app._id}}</p>
+		<p>Name: {{app.name}}</p>
+		<p>Expire: {{app.expireTime}}</p>
+		<a class="btn btn-default" href="#/modify/{{app._id}}" ng-click="">Modify</a>
+		<a class="btn btn-default" ng-click="delete($index)">Delete</a>
+
+	</div>
+	</div>
+</div>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" ng-app="RDash">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Logging System</title>
+  <!-- STYLES -->
+  <link rel="stylesheet" href="lib/css/main.min.css"/>
+  <!-- SCRIPTS -->
+  <script src="lib/js/main.min.js"></script>
+  <script src="lib/js/angular-route.min.js"></script>
+  <!-- Custom Scripts -->
+  <script type="text/javascript" src="js/dashboard.min.js"></script>
+</head>
+<body ng-controller="MasterCtrl">
+  <div id="page-wrapper" ng-class="{'open': toggle}" ng-cloak>
+
+    <!-- Sidebar -->
+    <div id="sidebar-wrapper">
+      <ul class="sidebar">
+        <li class="sidebar-main">
+          <a ng-click="toggleSidebar()">
+            Dashboard
+            <span class="menu-icon glyphicon glyphicon-transfer"></span>
+          </a>
+        </li>
+        <li class="sidebar-title"><span>NAVIGATION</span></li>
+        <li class="sidebar-list">
+          <a href="#" >Dashboard <span class="menu-icon fa fa-tachometer"></span></a>
+        </li>
+        <li class="sidebar-list">
+          <a href="#/listApps" >List Apps <span class="menu-icon fa fa-table"></span></a>
+        </li>
+        <li class="sidebar-list">
+          <a href="#/create" >Create a new app <span class="menu-icon fa fa-table"></span></a>
+        </li>
+        <li class="sidebar-list">
+          <a href="#/changenumberworkers" >Manage workers <span class="menu-icon fa fa-table"></span></a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="col-xs-12 text-muted text-center" style="padding-top:10px">
+            Copyright &copy; 2016
+        </div>
+      </div>
+    </div>
+    <!-- End Sidebar -->
+
+    <div id="content-wrapper">
+      <div class="page-content">
+
+        <!-- Header Bar -->
+        <div class="row header">
+          <div class="col-xs-12">
+
+            <div class="meta">
+              <div class="page">
+                {{appInf.page}}
+              </div>
+              <div class="breadcrumb-links">
+                {{appInf.breadcrumb}}
+              </div>
+            </div>
+          </div>
+        </div>
+      <!-- End Header Bar -->
+
+      <!-- Main Content -->
+      <div ui-view></div>
+      <div id="chartContainer" style="display:none"></div>
+    </div><!-- End Page Content -->
+  </div><!-- End Content Wrapper -->
+</div><!-- End Page Wrapper -->
+
+  <script type="text/javascript" src="js/canvasjs.min.js"></script>
+
+  <script type="text/javascript">
+    window.onload = function () {
+      var updateChart = function () {
+        var chart = new CanvasJS.Chart("chartContainer",{
+          title :{
+            text: "Logs"
+          },      
+          data: [{
+            type: "line",
+            dataPoints: dps 
+          }]
+        });   
+        chart.render();   
+
+      };
+      updateChart();
+      // update chart after specified time. 
+      setInterval(function(){updateChart()}, 2000); 
+
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<div class="row" ng-controller="CreateAppCtrl" style="margin-top: 130px;">
+	<div class="col-sm-6 col-sm-offset-3">
+		<div class="panel panel-default">
+			<div class="panel-heading">Create a new app</div>
+			<div class="panel-body">
+				<form class="form-horizontal" role="form">
+					<div ng-show="success" class="alert alert-success">
+					  <strong>Create!</strong> success _token: {{app._token}}
+					</div>
+					<div ng-show="faild" class="alert alert-danger">
+					  <strong>Create!</strong> faild
+					</div>
+
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="pwd">Name:</label>
+						<div class="col-sm-10"> 
+							<input type="text" class="form-control" id="pwd" ng-model="app.name" placeholder="Type your app's name here">
+						</div>
+					</div>
+
+					<div class="form-group"> 
+						<div class="col-sm-offset-2 col-sm-10">
+							<img  ng-show="loadcreate" src="img/rolling.gif" alt="">
+							<button  ng-show="button" type="button" class="btn btn-default" ng-click="create()">Create</button>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
