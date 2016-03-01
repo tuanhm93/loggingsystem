@@ -144,6 +144,7 @@ if(cluster.isMaster) {
 
     //Route for add one more app to system
     app.post('/addApp', function(req, res){
+      console.log(req.body);
       if(typeof req.body.name == 'string'){
         db.collection(config.get('mongoDB.collectionApps')).insertOne({
           "name": req.body.name,

@@ -45,9 +45,12 @@
         * portAPI: port sử dụng các API của RabbitMQ
 
 * Cài đặt Node.JS, RabbitMQ, MongoDB, cấu hình các thông tin phù hợp, các tham số như database, collectionApps, exchange, logQueue, taskQueue nên thiết lập lại để tránh trường hợp nó đã bị sử dụng
+
 * Di chuyển vào thư mục chứa project từ command/terminal, chạy lệnh ***npm install*** để cài đặt các module cần thiết của project
+
 * Chạy lệnh ***node webserver*** và ***node worker*** trên 2 terminal/command khác nhau để khởi động worker và webserver
 * Để truy cập vào CMS  từ trình duyệt truy cập http://localhost:[port: port chạy web server cấu hình trong config]/CMS, Ví dụ: http://localhost:3000/CMS
+
 ## API lưu trữ log
     http://host:port/saveLog
 * Giao thức POST
@@ -55,19 +58,21 @@
 * Key token của app là _token
 * Nên có thêm trường **time: miliseconds** sử dụng để xóa dữ liệu log sau 1 khoảng thời gian nếu không có hệ thống sẽ tính thời gian xóa theo cấu hình trong CMS là từ thời điểm insert vào cơ sở dữ liệu
 * Ví dụ: 
-    ```javascript
-    {
-    "_token": "56d532db7ef32d950e51a74a",
-    "actiontype" : "purchase", 
-    "time" : 1455340625441, 
-    "username": "tuanhm"
-    "cid" : 8, 
-    "pid" : 918,
-    "amount" : 2,
-    "price" : 87
-    }
-    ```
+```javascript
+{
+"_token": "56d532db7ef32d950e51a74a",
+"actiontype" : "purchase", 
+"time" : 1455340625441, 
+"username": "tuanhm"
+"cid" : 8, 
+"pid" : 918,
+"amount" : 2,
+"price" : 87
+}
+```
+
 * Khi WebServer đã nhận được request thì giá trị trả về luôn là thành công {success:true}, client nên bắt các sự kiện lỗi liên quan tới  stream, connection ...
+
 ## API tìm kiếm log
     http://host:port/search?param=value&...
 * Giao thức GET
