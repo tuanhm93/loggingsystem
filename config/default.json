@@ -1,0 +1,27 @@
+{
+	"port": 3000,
+	"numWebservers": 4,
+	"limitSearch":40,
+	"mongoDB":{
+		"host": "127.0.0.1",
+		"port": 1234,
+		"username": "test",
+		"password": "test",
+		"database": "test",
+		"collectionApps": "apps"
+	},
+
+	"rabbitMQ":{
+		"host": "localhost",
+		"port": 5672,
+		"username": "guest",
+		"password": "guest",
+		"vitualHost": "",
+		"numWorkers": 4,
+		"taskQueue": "task",
+		"logQueue": "logs",
+		"exchange": "topics_log",
+		"prefetch": 1,
+		"portAPI": 15672
+	}
+}

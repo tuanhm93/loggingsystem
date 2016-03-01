@@ -3,34 +3,42 @@
 var cluster = require('cluster');
 
 if(cluster.isMaster) {
-  var config = require('./config'),
+  var config = require('config'),
       cleanUp = require('./lib/cleanup.js'),
       RabbitMQ = require('./lib/rabbitmq.js'),
-      rabbitMQ = new RabbitMQ({url: config.urlRabbitMQ}),
-      numWorkers = config.numWorkers;
-      
-  var amqpConn = null;
+      amqpConn = null,
+      channel = null,
+      consumerTag = '';
+
+  var numWorkers = config.get('rabbitMQ.numWorkers');
+
+  var rabbitMQ = new RabbitMQ({
+    host: config.get('rabbitMQ.host'),
+    port: config.get('rabbitMQ.port'),
+    username: config.get('rabbitMQ.username'),
+    password: config.get('rabbitMQ.password'),
+    vitualHost: config.get('rabbitMQ.vitualHost')
+  });
+
   rabbitMQ.init();
   rabbitMQ.on('connect', function(conn){
     amqpConn = conn;
     rabbitMQ.createChannel();
   });
 
-  var channel = null;
   rabbitMQ.on('created', function(ch){
     channel = ch;
-    channel.prefetch(1)
+    channel.prefetch(config.get('rabbitMQ.prefetch'))
       .then(function(){
-        return channel.assertQueue('task', {durable: true});
+        return channel.assertQueue(config.get('rabbitMQ.taskQueue'), {durable: true});
       }).then(function(qok){
         startTaskConsume();
       });
   });
 
-  var consumerTag = '';
   function startTaskConsume(){
     console.log('Consume master has been started');
-    channel.consume('task', handleFunction, {noAck: false})
+    channel.consume(config.get('rabbitMQ.taskQueue'), handleFunction, {noAck: false})
     	.then(function(results){
         consumerTag = results.consumerTag;
       }).catch(function(err){
@@ -43,7 +51,7 @@ if(cluster.isMaster) {
     try{
       let data = JSON.parse(msg.content);
       if(data.task == 'changeNumberWorkers'){
-        let number = Number(data.numberWorkers) || -1;
+        let number = parseInt(data.numberWorkers) || -1;
         let keyWorkers = Object.keys(cluster.workers);
         if(number > 0){
           if(number < keyWorkers.length){
@@ -103,37 +111,55 @@ if(cluster.isMaster) {
   cleanUp(gracefulShutdown);
 
 }else{
-  var config = require('./config'),
+  var config = require('config'),
       MongoDB = require('./lib/mongodb.js'),
-  	  mongoDB = new MongoDB({url: config.urlMongoDB}),
   	  RabbitMQ = require('./lib/rabbitmq.js'),
-  	  rabbitMQ = new RabbitMQ({url: config.urlRabbitMQ}),
   	  cleanUp = require('./lib/cleanup.js'),
-      moment = require('moment');
+      moment = require('moment'),
+      amqpConn = null,
+      channel = null,
+      db = null,
+      consumerTag = '';
 
-  var amqpConn = null;
+  var rabbitMQ = new RabbitMQ({
+    host: config.get('rabbitMQ.host'),
+    port: config.get('rabbitMQ.port'),
+    username: config.get('rabbitMQ.username'),
+    password: config.get('rabbitMQ.password'),
+    vitualHost: config.get('rabbitMQ.vitualHost')
+  });
+
   rabbitMQ.init();
   rabbitMQ.on('connect', function(conn){
     amqpConn = conn;
     rabbitMQ.createChannel();
   });
 
-  var channel = null;
   rabbitMQ.on('created', function(ch){
   	channel = ch;
-    channel.assertExchange('topic_logs', 'topic', {durable: true})
+    channel.assertExchange(config.get('rabbitMQ.exchange'), 'topic', {durable: true})
       .then(function(){
-        return channel.assertQueue('saveLog', {durable: true});
+        return channel.assertQueue(config.get('rabbitMQ.logQueue'), {durable: true});
       }).then(function(qok){
-        return channel.bindQueue('saveLog', 'topic_logs', '#');
+        return channel.bindQueue(config.get('rabbitMQ.logQueue'), config.get('rabbitMQ.exchange'), '#');
       }).then(function(){
-        return channel.prefetch(1);
+        return channel.prefetch(config.get('rabbitMQ.prefetch'));
       }).then(function(){
         readyToStartWorker();
+      }).catch(function(err){
+        console.error('[RabbitMQ] bindQueue', err.message);
+        channel.connection.close();
       });
   });
 
-  var db = null;
+  var mongoDB = new MongoDB({
+    host: config.get('mongoDB.host'),
+    port: config.get('mongoDB.port'),
+    username: config.get('mongoDB.username'),
+    password: config.get('mongoDB.password'),
+    database: config.get('mongoDB.database')
+  });
+
   mongoDB.init();
   mongoDB.on('ready', function(database){
   	db = database;
@@ -141,11 +167,9 @@ if(cluster.isMaster) {
   	readyToStartWorker();
   });
 
-  var consumerTag = '';
-  var channel = null;
   function startWorkerConsume(){
     console.log('Worker consume has been started!');
-    channel.consume('saveLog', handleFunction, {noAck: false})
+    channel.consume(config.get('rabbitMQ.logQueue'), handleFunction, {noAck: false})
       .then(function(results){
         consumerTag = results.consumerTag;
       }).catch(function(err){
@@ -172,7 +196,7 @@ if(cluster.isMaster) {
         let hasSet = false;
 
         if(data.time != undefined){
-          let miliseconds = Number(data.time) || -1;
+          let miliseconds = parseInt(data.time) || -1;
           if(miliseconds != -1){
             data.expireTime = moment(data.time).toDate(); 
             hasSet = true;
@@ -215,14 +239,15 @@ if(cluster.isMaster) {
         }, 5000);
       }).catch(function(err){
 
-	    if(cluster.worker.suicide){
-	       process.exit(1);        
-	    }else{
-	       process.exit(93);
-	    }
+  	    if(cluster.worker.suicide){
+  	       process.exit(1);        
+  	    }else{
+  	       process.exit(93);
+  	    }
 
       });
   }
+  
   process.on('SIGINT', function(){
   	cluster.worker.suicide = true;
   });
