@@ -1,6 +1,5 @@
 node_modules/
 images/
-package.json
 rabbitmqworker.js
 rabbitsender.js
 rabbitreceiver.js
