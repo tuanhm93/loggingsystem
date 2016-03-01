@@ -125,7 +125,7 @@ if(cluster.isMaster) {
     //parse application/x-www-form-urlencoded  
     app.use(bodyParser.urlencoded({ extended: false }));
     // parse application/json
-    app.use(bodyParser.raw({type: 'application/json'}));
+    // app.use(bodyParser.json());
 
     // CORS
     app.use(function(req, res, next) {
@@ -138,12 +138,12 @@ if(cluster.isMaster) {
     // Route for save log
     app.post('/saveLog', function(req, res){
       res.json({sucess: true});
+      console.log(req.body);
       sendLogToQueue(req.body);
     });
 
     //Route for add one more app to system
     app.post('/addApp', function(req, res){
-      req.body = JSON.parse(req.body);
       if(typeof req.body.name == 'string'){
         db.collection(config.get('mongoDB.collectionApps')).insertOne({
           "name": req.body.name,
@@ -328,7 +328,7 @@ if(cluster.isMaster) {
 
   function sendLogToQueue(content){
     try {    
-      channel.publish(exchange, JSON.parse(content.toString())._token || '', content, { persistent: true },
+      channel.publish(exchange, content._token || '', new Buffer(JSON.stringify(content)), { persistent: true },
         function(err, ok) { 
           if (err) {
             console.error("[AMQP] publish", err);
