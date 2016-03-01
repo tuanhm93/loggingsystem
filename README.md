@@ -54,7 +54,7 @@
 ## API lưu trữ log
     http://host:port/saveLog
 * Giao thức POST
-* Content-type: *application/x-www-form-urlencoded*
+* Content-type: *application/json*
 * Key token của app là _token
 * Nên có thêm trường **time: miliseconds** sử dụng để xóa dữ liệu log sau 1 khoảng thời gian nếu không có hệ thống sẽ tính thời gian xóa theo cấu hình trong CMS là từ thời điểm insert vào cơ sở dữ liệu
 * Ví dụ: 
