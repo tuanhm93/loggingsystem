@@ -85,11 +85,17 @@
 * Hạn chế hiện tại các key-value gửi lên tìm kiếm  value đều có dạng string nên các tìm kiếm chỉ khớp các gía trị trường có kiểu dữ liệu là string
 * Các log trả về được sắp xếp theo thứ tự time giảm dần
 * Ví dụ: Với cấu trúc log như ví dụ trên nếu muốn tìm kiếm các log liên quan tới user có username là tuanhm, của app có _token là  56d532db7ef32d950e51a74a thì câu truy vấn sẽ là:
-	http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm
+```
+http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm
+```
 * Tìm kiếm các log từ đầu tháng 2/2016 cho tới đầu tháng 3/2016  của username là tuanhm, app có _token là 56d532db7ef32d950e51a74a, actiontype là purchase
-    * http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm&actiontype=purchase&startTime=1-2-2016&endTime=1-3-2016
+```
+http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm&actiontype=purchase&startTime=1-2-2016&endTime=1-3-2016
+```
 * Hai câu truy vấn trên sẽ trả về n log  mới nhất , để lấy các log tiếp theo sẽ thêm tham số page vào, ví dụ câu truy vấn đầu tiên muốn lấy  thêm n log tiếp theo 
-	http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm&page=2
+```
+http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm&page=2
+```
 * Khuôn dạng dữ liệu trả về {success: true, logs:  [...]} hoặc {success: false}
 
 ## Cấu hình hệ thống thứ 3 lắng nghe các log từ các app
