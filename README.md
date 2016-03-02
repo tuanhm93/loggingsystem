@@ -55,7 +55,7 @@
     http://host:port/saveLog
 * Giao thức POST
 * Content-type: *application/json*
-* Key token của app là _token
+* Trường token của app là _token
 * Nên có thêm trường **time: miliseconds** sử dụng để xóa dữ liệu log sau 1 khoảng thời gian nếu không có hệ thống sẽ tính thời gian xóa theo cấu hình trong CMS là từ thời điểm insert vào cơ sở dữ liệu
 * Ví dụ: 
 ```javascript
@@ -74,27 +74,53 @@
 * Khi WebServer đã nhận được request thì giá trị trả về luôn là thành công {success:true}, client nên bắt các sự kiện lỗi liên quan tới  stream, connection ...
 
 ## API tìm kiếm log
-    http://host:port/search?param=value&...
-* Giao thức GET
+    http://host:port/search
+* Giao thức POST
+* Content-type: *application/json*
+* Ví dụ:
+```javascript
+{
+	"_token": "56d654411cf3c0191b8b0d38",
+	"startTime": 1456891425594,
+	"endTime": 1456891425594,
+	"username": "tuanhm",
+	"actiontype": "purchase",
+	"page": 1
+}
+```
 * Tham số:
     * _token: token của app
-    * startTime: thời điểm bắt  định dạng DD-MM-YYYY
-    * endTime: thời điểm kết thúc định dạng DD-MM-YYYY
+    * startTime: thời điểm bắt đầu  (miliseconds)
+    * endTime: thời điểm kết thúc (miliseconds)
+    * startTime, endTime sẽ sử dụng để tìm kiếm trên trường  **time**
     * page: mỗi lần truy vấn sẽ trả về chỉ n log , n được cấu hình trong file config, muốn lấy các log tiếp theo thì sẽ tăng giá trị page lên
     * Các tham số khác tùy chọn
-* Hạn chế hiện tại các key-value gửi lên tìm kiếm  value đều có dạng string nên các tìm kiếm chỉ khớp các gía trị trường có kiểu dữ liệu là string
+* Hạn chế hiện tại chỉ hỗ trợ  các phép toán so sánh bằng trên các trường của log
 * Các log trả về được sắp xếp theo thứ tự time giảm dần
-* Ví dụ: Với cấu trúc log như ví dụ trên nếu muốn tìm kiếm các log liên quan tới user có username là tuanhm, của app có _token là  56d532db7ef32d950e51a74a thì câu truy vấn sẽ là:
+* Ví dụ: Với cấu trúc log như ví dụ trên nếu muốn tìm kiếm các log liên quan tới user có username là tuanhm, của app có _token là  56d532db7ef32d950e51a74a thì dữ liệu json gửi lên sẽ là
+```javascript
+{
+    "_token": "56d532db7ef32d950e51a74a",
+    "username": "tuanhm"
+}
 ```
-http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm
-```
-* Tìm kiếm các log từ đầu tháng 2/2016 cho tới đầu tháng 3/2016  của username là tuanhm, app có _token là 56d532db7ef32d950e51a74a, actiontype là purchase
-```
-http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm&actiontype=purchase&startTime=1-2-2016&endTime=1-3-2016
+* Tìm kiếm các log từ 1/2/2016 (1454259600000 miliseconds) cho tới 1/3/2016 (1456765200000 miliseconds) của username là tuanhm, app có _token là 56d532db7ef32d950e51a74a, actiontype là purchase
+```javascript
+{
+    "_token": "56d532db7ef32d950e51a74a",
+    "username": "tuanhm",
+    "actiontype": "purchase",
+    "startTime": 1454259600000,
+    "endTime": 1456765200000
+}
 ```
 * Hai câu truy vấn trên sẽ trả về n log  mới nhất , để lấy các log tiếp theo sẽ thêm tham số page vào, ví dụ câu truy vấn đầu tiên muốn lấy  thêm n log tiếp theo 
-```
-http://host:port/search?_token=56d532db7ef32d950e51a74a&username=tuanhm&page=2
+```javascript
+{
+    "_token": "56d532db7ef32d950e51a74a",
+    "username": "tuanhm",
+    "page": 2
+}
 ```
 * Khuôn dạng dữ liệu trả về {success: true, logs:  [...]} hoặc {success: false}
 
