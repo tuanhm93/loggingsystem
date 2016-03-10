@@ -16,6 +16,7 @@
     "config": "^1.19.0",
     "express": "^4.13.4",
     "lodash": "^4.0.0",
+    "lz-string": "^1.4.4",
     "moment": "^2.11.1",
     "mongodb": "^2.1.4"
   }

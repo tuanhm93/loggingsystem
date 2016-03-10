@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 images/
 rabbitmqworker.js
@@ -12,3 +13,8 @@ generateLog.js
 generateUsers.js
 webservice.js
 
+=======
+.idea/*
+.node_modules/*
+.coverage/*
+>>>>>>> 6a85200f9ed096941e7a873c6205903764d06e58
