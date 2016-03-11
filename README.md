@@ -1,40 +1,37 @@
-<<<<<<< HEAD
 # Logging system
 ## Hướng dẫn deploy hệ thống
 *   Cấu hình hệ thống trong config/default.js
 ```javascript
 {
-	"port": 3000,
-	"numWebservers": 4,
-	"limitSearch":40,
-	"mongoDB":{
-		"host": "127.0.0.1",
-		"port": 1234,
-		"username": "test",
-		"password": "test",
-		"database": "test",
-		"collectionApps": "apps"
-	},
+    "port": 3000,
+    "numWebservers": 4,
+    "mongoDB":{
+        "host": "127.0.0.1",
+        "port": 1234,
+        "username": "test",
+        "password": "test",
+        "database": "test",
+        "collectionApps": "apps"
+    },
 
-	"rabbitMQ":{
-		"host": "localhost",
-		"port": 5672,
-		"username": "guest",
-		"password": "guest",
-		"vitualHost": "",
-		"numWorkers": 4,
-		"taskQueue": "task",
-		"logQueue": "logs",
-		"exchange": "topics_log",
-		"prefetch": 1,
-		"portAPI": 15672
-	}
+    "rabbitMQ":{
+        "host": "localhost",
+        "port": 5672,
+        "username": "guest",
+        "password": "guest",
+        "vitualHost": "",
+        "numWorkers": 4,
+        "taskQueue": "task",
+        "logQueue": "logs",
+        "exchange": "topics_log",
+        "prefetch": 1,
+        "portAPI": 15672
+    }
 }
 ```
 * Note:
     * port: Cổng web server lắng nghe request
     * numWebservers: Số lượng các web server phục vụ request client
-    * limitSearch: Số lượng log trả về từ  api tìm kiếm
     * mongoDB: Cấu hình cơ sở dữ liệu mongodb 
         * collectionApps: Tên collection lưu trữ dữ liệu các app của hệ thống
     * rabbitMQ: Cấu hình kết nối RabbitMQ
@@ -49,15 +46,14 @@
 
 * Di chuyển vào thư mục chứa project từ command/terminal, chạy lệnh ***npm install*** để cài đặt các module cần thiết của project
 
-* Chạy lệnh ***node webserver*** và ***node worker*** trên 2 terminal/command khác nhau để khởi động worker và webserver
+* Chạy lệnh ***node master-webserver*** và ***node master-worker*** trên 2 terminal/command khác nhau để khởi động worker và webserver
 * Để truy cập vào CMS  từ trình duyệt truy cập http://localhost:[port: port chạy web server cấu hình trong config]/CMS, Ví dụ: http://localhost:3000/CMS
 
 ## API lưu trữ log
-    http://host:port/saveLog
+    http://host:port/api/save
 * Giao thức POST
 * Content-type: *application/json*
 * Trường token của app là _token
-* Nên có thêm trường **time: miliseconds** sử dụng để xóa dữ liệu log sau 1 khoảng thời gian nếu không có hệ thống sẽ tính thời gian xóa theo cấu hình trong CMS là từ thời điểm insert vào cơ sở dữ liệu
 * Ví dụ: 
 ```javascript
 {
@@ -72,158 +68,56 @@
 }
 ```
 
-* Khi WebServer đã nhận được request thì giá trị trả về luôn là thành công {success:true}, client nên bắt các sự kiện lỗi liên quan tới  stream, connection ...
-
+* Khi WebServer đã nhận được request thì giá trị trả về luôn là thành công {success:true}
+* Có 1 trường đặc biệt là **contents** đối với trường này nếu dữ liệu gửi lên là string hệ thống sẽ sử dụng gzip để nén dữ liệu trường này lại, nên rất phù hợp cho việc lưu trữ các chuỗi content dài mà không sợ quá tốn bộ nhớ, khi truy vấn lại các log trình sẽ tự động giải nén dữ liệu và trả về. Ví dụ: 
+```javascript
+"username" : "anhquanxx",
+"contents" : "22:23:42: Logged in via R1001 platform: android version:v1.2.02 | vCode : 19 | 23/7/2014 money:10067 exp:520\n22:25:21: At b 7 r 17 chinese chess play game: 1380615_1446305121664_289\n22:40:56: receive: 1900. now, money: 11967 exp: 524\n22:41:12: At b 7 r 17 chinese chess play game: 1380615_1446306072683_290\n22:59:41: receive: -2000. now, money: 9967 exp: 524\n23:00:19: be kicked\n23:01:13: At b 44 r 11 chinese chess play game: 1379116_1446307273838_249\n23:16:33: receive: -8000. now, money: 1967 exp: 524\n23:17:36: charged 1000 gold\n23:18:05: At b 11 r 19 chinese chess play game: 1381131_1446308285452_175\n23:23:43: get online bonus: 110\n23:40:12: receive: -1000. now, money: 2077 exp: 524\n23:40:24: At b 11 r 19 chinese chess play game: 1381131_1446309624211_176\n23:59:20: receive: -1000. now, money: 1077 exp: 524\n23:59:30: log out"
+```
+*   Khi lưu trữ bình thường dữ liệu có cấu trúc như trên ở mongodb phiên bản 3.2.1 storage engine là wiredtiger sử dụng thư viện nén mặc định snappy thì sẽ tốn  915 bytes, trong khi sử dụng nén gzip ở trường content thì chỉ mất  463 bytes, giảm 1 nửa so với kích thước ban đầu
 ## API tìm kiếm log
-    http://host:port/search
+    http://host:port/api/search
 * Giao thức POST
 * Content-type: *application/json*
+* Hiện tại chương trình hỗ trỡ tìm kiếm so sánh bằng hoặc trong 1 khoảng của các trường
+* Chủ động giới hạn số bản ghi trả về, số bản ghi skip (bỏ qua) dựa trên tham số gửi lên
+* Sắp xếp bản ghi trả về theo giá trị trường gửi lên tham số
 * Ví dụ:
 ```javascript
 {
-	"_token": "56d654411cf3c0191b8b0d38",
-	"startTime": 1456891425594,
-	"endTime": 1456891425594,
-	"username": "tuanhm",
-	"actiontype": "purchase",
-	"page": 1
+    "_token": "56d654411cf3c0191b8b0d38",
+    "$s_time": 1456891425594,
+    "$e_time": 1456891425594,
+    "username": "tuanhm",
+    "actiontype": "purchase",
+    "sort": {
+        "time": 1
+    },
+    "limit": 10,
+    "page": 1
 }
 ```
 * Tham số:
     * _token: token của app
-    * startTime: thời điểm bắt đầu  (miliseconds)
-    * endTime: thời điểm kết thúc (miliseconds)
-    * startTime, endTime sẽ sử dụng để tìm kiếm trên trường  **time**
-    * page: mỗi lần truy vấn sẽ trả về chỉ n log , n được cấu hình trong file config, muốn lấy các log tiếp theo thì sẽ tăng giá trị page lên
-    * Các tham số khác tùy chọn
-* Hạn chế hiện tại chỉ hỗ trợ  các phép toán so sánh bằng trên các trường của log
-* Các log trả về được sắp xếp theo thứ tự time giảm dần
-* Ví dụ: Với cấu trúc log như ví dụ trên nếu muốn tìm kiếm các log liên quan tới user có username là tuanhm, của app có _token là  56d532db7ef32d950e51a74a thì dữ liệu json gửi lên sẽ là
+    * $s_time: giá trị min của trường **time**
+    * $e_time: giá trị max của trường **time**
+    * ("username": "tuanhm") tìm các log có trường username có giá trị là tuanhm
+    * ("sort": {"time": 1}) sắp xếp các log theo giá trị trường time giảm dần
+    * limit: số log trả về
+    * page: mỗi lần truy vấn sẽ trả về chỉ  **limit** log, muốn lấy các log tiếp theo thì sẽ tăng giá trị page lên
+
+* Ví dụ: Với cấu trúc log như ví dụ trên nếu muốn tìm kiếm các log **purchase** liên quan tới user có username là tuanhm, có giá trị price >= 50, lấy 20 log bỏ quả 20 log đầu tiên, sắp xếp theo  **price** giảm dần  của app có _token là  56d532db7ef32d950e51a74a thì dữ liệu json gửi lên sẽ là
 ```javascript
 {
     "_token": "56d532db7ef32d950e51a74a",
-    "username": "tuanhm"
-}
-```
-* Tìm kiếm các log từ 1/2/2016 (1454259600000 miliseconds) cho tới 1/3/2016 (1456765200000 miliseconds) của username là tuanhm, app có _token là 56d532db7ef32d950e51a74a, actiontype là purchase
-```javascript
-{
-    "_token": "56d532db7ef32d950e51a74a",
-    "username": "tuanhm",
     "actiontype": "purchase",
-    "startTime": 1454259600000,
-    "endTime": 1456765200000
-}
-```
-* Hai câu truy vấn trên sẽ trả về n log  mới nhất , để lấy các log tiếp theo sẽ thêm tham số page vào, ví dụ câu truy vấn đầu tiên muốn lấy  thêm n log tiếp theo 
-```javascript
-{
-    "_token": "56d532db7ef32d950e51a74a",
     "username": "tuanhm",
-    "page": 2
+    "$s_price": 50,
+    "limit": 20,
+    "page": 1
+    "sort": {
+        "price": 1
+    }
 }
 ```
-* Khuôn dạng dữ liệu trả về {success: true, logs:  [...]} hoặc {success: false}
 
-## Cấu hình hệ thống thứ 3 lắng nghe các log từ các app
-* Các hệ thống thứ 3 muốn lắng nghe dữ liệu log từ 1 game app cụ thể  sẽ phải implement  rabbitmq
-* Đầu tiên sẽ kết nối tới cùng rabbit mà hệ thống đang sử dụng 
-* Tạo queue mới thiết lập **durable = true** để tránh bị mất log khi disconnect 
-* Bind key = _token với queue vừa tạo, _token là token của app 
-* Khi đó các log của các app có token trùng với key sẽ được đẩy vào queue vừa tạo, kể cả khi disconnect các queue vẫn tiếp tục nhận, lưu các log  lại, do đã thiết lập **durable= true**
-* **Note**: Khi có 2 hệ  thống cùng muốn lắng nghe log  từ 1 app thì phải thiết lập tên các queue khác nhau.
-=======
-JSONC
-=====
-# Update to version 1.6.1
-
-[![Build Status](https://travis-ci.org/tcorral/JSONC.png)](https://travis-ci.org/tcorral/JSONC)
-
-[Changelog](https://raw.github.com/tcorral/JSONC/master/changelog.txt)
-
-## Background
-
-One of the problems you can have developing rich internet applications (RIA) using Javascript is the amount of data being transported to
-and from the server.
-When data comes from server, this data could be GZipped, but this is not possible when the big amount of data comes from
-the browser to the server.
-
-##### JSONC is born to change the way browser vendors think and become an standard when send information to the server efficiently. 
-
-
-JSONC has two differents approaches to reduce the size of the amount of data to be transported:
-
-* *JSONC.compress* - Compress JSON objects using a map to reduce the size of the keys in JSON objects.
-    * Be careful with this method because it's really impressive if you use it with a JSON with a big amount of data, but it
-could be awful if you use it to compress JSON objects with small amount of data because it could increase the final size.
-    * The rate compression could variate from 7.5% to 32.81% depending of the type and values of data.
-* *JSONC.pack* - Compress JSON objects using GZIP compression algorithm, to make the job JSONC uses a modification to
-use the gzip library and it encodes the gzipped string with Base64 to avoid url encode.
-   * Gzip - @beatgammit - https://github.com/beatgammit/gzip-js
-   * Base64 - http://www.webtoolkit.info/
-   * You can use pack to compress any JSON objects even if these objects are not been compressed using JSONC
-See Usage for more details.
-
-##Usage
-
-####Compress a JSON object:
-
-    // Returns a JSON object but compressed.
-    var compressedJSON = JSONC.compress( json );
-
-####Decompress a JSON object:
-
-    // Returns the original JSON object.
-    var json = JSONC.decompress( compressedJSON );
-
-####Compress a normal JSON object as a Gzipped string:
-
-    // Returns the LZW representation as string of the JSON object.
-    var lzwString = JSONC.pack( json );
-
-####Compress a JSON object as a Gzipped string after compress it using JSONC:
-
-    // Returns the LZW representation as string of the JSON object.
-    var lzwString = JSONC.pack( json, true );
-
-####Decompress a normal JSON object from a Gzipped string:
-
-    // Returns the original JSON object.
-    var json = JSONC.unpack( gzippedString );
-
-####Decompress a JSON compressed object using JSONC from a Gzipped string:
-
-    // Returns the original JSON object.
-    var json = JSONC.unpack( gzippedString, true );
-
-## Examples of compression
-
-####Example data.js.
-
-    Original - 17331 bytes
-    Compressed using JSONC - 16025 bytes
-    Compression rate - 7.5%
-
-
-    Original compressed using gzip.js - 5715 bytes
-    Compressed using JSONC using gzip.js - 5761 bytes
-
-
-    Compression rate from original to compressed using JSONC and gzip.js - 66.76%
-
-####Example data2.js.
-
-    Original - 19031 bytes
-    Compressed using JSONC - 12787 bytes
-    Compression rate - 32.81%
-
-
-    Original compressed using gzip.js - 4279 bytes
-    Compressed using JSONC using gzip.js - 4664 bytes
-
-
-    Compression rate from original to compressed using JSONC and gzip.js - 75.49%
-
-##Next steps
-####Implement the gzip class in different languages (Java, Ruby...)
->>>>>>> 6a85200f9ed096941e7a873c6205903764d06e58

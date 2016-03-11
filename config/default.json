@@ -1,7 +1,6 @@
 {
 	"port": 3000,
 	"numWebservers": 4,
-	"limitSearch":40,
 	"mongoDB":{
 		"host": "127.0.0.1",
 		"port": 1234,

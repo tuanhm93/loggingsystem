@@ -84,10 +84,12 @@ function handleFunction(msg) {
   try{
     var data = JSON.parse(msg.content);
     var collection = data._token || '';
-    if(collection !== ''){
+    delete data._token;
+    if(collection != ''){
 
       // add expireTime to use ttl index
       data.expireTime = moment().toDate();
+
       async.series([
         function (callback){
           if(typeof data.contents === "string"){

@@ -7,11 +7,16 @@ var config = require('config'),
     cleanUp = require('./lib/cleanup.js'),
     moment = require('moment'),
     http = require('http'),
+    async = require('async'),
+    zlib = require('zlib'),
+    bluebird = require('bluebird'),
     amqpConn = null,
     channel = null,
     server = null,
     db = null,
     offlineQueue = [];
+
+var gunzipAsync = bluebird.promisify(zlib.gunzip);
 
 var app = express();
 var exchange = config.get('rabbitMQ.exchange');
@@ -223,20 +228,58 @@ function startWebServer(){
     if(typeof collection == 'string'){
       var sort = data.sort || {};
       var limit = data.limit || 10;
-      var skip = data.skip || 0;
-      delete data.order;
+      var page = data.page || 0;
+      delete data.sort;
       delete data.limit;
-      delete data.skip;
+      delete data.page;
 
       var query = getQuerySearch(data);
+
       console.log(query);
-      db.collection(collection).find(query, {_id: 0, expireTime: 0}).sort(sort).skip(skip*limit).limit(limit).toArray()
-        .then(function(logs){
-          res.json({success: true, logs});
-        }).catch(function(e){
-          console.error('[WebServer] search', e.message);
+      var cursor = db.collection(collection).find(query, {_id: 0, expireTime: 0}).sort(sort).skip(page*limit).limit(limit);
+
+      async.parallel([
+        function(callback){
+          cursor.count()
+            .then(function(r){
+              callback(null, r);
+            }).catch(function(e){
+              callback(e);
+            });
+        }, function(callback){
+          cursor.toArray()
+            .then(function(logs){
+              async.each(logs, function(log, asyncCallback){
+                if(log.contents._bsontype === "Binary"){
+                  gunzipAsync(log.contents.buffer)
+                    .then(function(r){
+                      log.contents = r.toString();
+                      asyncCallback(null);
+                    }).catch(function(e){
+                      asyncCallback(e);
+                    });
+                }else{
+                  asyncCallback(null);
+                }
+              }, function(e){
+                if(e){
+                  callback(e);
+                }else{
+                  callback(null, logs);
+                }
+              });
+            }).catch(function(e){
+              callback(e);
+            });
+        }
+      ],
+      function(e, rs){
+        if(e){
           res.json({success: false});
-        }); 
+        }else{
+          res.json({success: true, total: rs[0], logs: rs[1]})
+        }
+      });
     }else{
       res.json({success: false});
     }
