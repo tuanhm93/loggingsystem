@@ -115,7 +115,7 @@
     "username": "tuanhm",
     "$s_price": 50,
     "limit": 20,
-    "page": 1
+    "page": 2,
     "sort": {
         "price": 1
     }

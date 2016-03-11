@@ -228,7 +228,7 @@ function startWebServer(){
     if(typeof collection == 'string'){
       var sort = data.sort || {};
       var limit = data.limit || 10;
-      var page = data.page || 0;
+      var page = data.page || 1;
       delete data.sort;
       delete data.limit;
       delete data.page;
@@ -236,7 +236,7 @@ function startWebServer(){
       var query = getQuerySearch(data);
 
       console.log(query);
-      var cursor = db.collection(collection).find(query, {_id: 0, expireTime: 0}).sort(sort).skip(page*limit).limit(limit);
+      var cursor = db.collection(collection).find(query, {_id: 0, expireTime: 0}).sort(sort).skip((page-1)*limit).limit(limit);
 
       async.parallel([
         function(callback){
