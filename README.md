@@ -75,6 +75,7 @@
 "contents" : "22:23:42: Logged in via R1001 platform: android version:v1.2.02 | vCode : 19 | 23/7/2014 money:10067 exp:520\n22:25:21: At b 7 r 17 chinese chess play game: 1380615_1446305121664_289\n22:40:56: receive: 1900. now, money: 11967 exp: 524\n22:41:12: At b 7 r 17 chinese chess play game: 1380615_1446306072683_290\n22:59:41: receive: -2000. now, money: 9967 exp: 524\n23:00:19: be kicked\n23:01:13: At b 44 r 11 chinese chess play game: 1379116_1446307273838_249\n23:16:33: receive: -8000. now, money: 1967 exp: 524\n23:17:36: charged 1000 gold\n23:18:05: At b 11 r 19 chinese chess play game: 1381131_1446308285452_175\n23:23:43: get online bonus: 110\n23:40:12: receive: -1000. now, money: 2077 exp: 524\n23:40:24: At b 11 r 19 chinese chess play game: 1381131_1446309624211_176\n23:59:20: receive: -1000. now, money: 1077 exp: 524\n23:59:30: log out"
 ```
 *   Khi lưu trữ bình thường dữ liệu có cấu trúc như trên ở mongodb phiên bản 3.2.1 storage engine là wiredtiger sử dụng thư viện nén mặc định snappy thì sẽ tốn  915 bytes, trong khi sử dụng nén gzip ở trường content thì chỉ mất  463 bytes, giảm 1 nửa so với kích thước ban đầu
+
 ## API tìm kiếm log
     http://host:port/api/search
 * Giao thức POST
