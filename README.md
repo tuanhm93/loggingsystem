@@ -46,7 +46,7 @@
 
 * Di chuyển vào thư mục chứa project từ command/terminal, chạy lệnh ***npm install*** để cài đặt các module cần thiết của project
 
-* Chạy lệnh ***node master-webserver*** và ***node master-worker*** trên 2 terminal/command khác nhau để khởi động worker và webserver
+* Chạy lệnh ***node webserver*** và ***node worker*** trên 2 terminal/command khác nhau để khởi động worker và webserver
 * Để truy cập vào CMS  từ trình duyệt truy cập http://localhost:[port: port chạy web server cấu hình trong config]/CMS, Ví dụ: http://localhost:3000/CMS
 
 ## API lưu trữ log
